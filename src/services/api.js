@@ -1,12 +1,12 @@
 // src/services/api.js
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API_URL = import.meta.env.VITE_API_URL;
 
 export const obtenerServicios = async () => {
   const response = await fetch(`${API_URL}/api/servicios`);
   if (!response.ok) {
-    throw new Error('No se pudieron cargar los servicios de producción técnica.');
+    throw new Error('Error al obtener servicios');
   }
-  return response.json();
+  return await response.json();
 };
 
 export const generarCotizacion = async (formData) => {
@@ -22,5 +22,5 @@ export const generarCotizacion = async (formData) => {
     const errorData = await response.json();
     throw new Error(errorData.detail?.[0]?.msg || 'Error al procesar la cotización en el servidor.');
   }
-  return response.json();
+  return await response.json();
 };

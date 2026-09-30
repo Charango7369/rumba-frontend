@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { obtenerServicios } from '../services/api';
+import { useState, useEffect } from "react";
+import { obtenerServicios } from "@/services/api"; // Tu alias funcionando
 
 export default function ListaServicios() {
   const [servicios, setServicios] = useState([]);
@@ -7,70 +7,85 @@ export default function ListaServicios() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    obtenerServicios()
-      .then(setServicios)
-      .catch((err) => setError(err.message))
-      .finally(() => setCargando(false));
+    const fetchServicios = async () => {
+      try {
+        const data = await obtenerServicios();
+        setServicios(data);
+      } catch (err) {
+        console.error("Error al obtener servicios:", err);
+        setError("Ocurrió un problema al cargar los servicios.");
+      } finally {
+        setCargando(false);
+      }
+    };
+
+    fetchServicios();
   }, []);
 
-  if (cargando) return (
-    <div className="flex justify-center items-center py-20">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
-    </div>
-  );
-
-  if (error) return (
-    <div className="max-w-3xl mx-auto my-10 p-6 bg-red-50 text-red-700 rounded-xl border border-red-200 text-center">
-      <p className="font-bold">Error de conexión</p>
-      <p className="text-sm">{error}</p>
-    </div>
-  );
-
   return (
-    <div className="max-w-7xl mx-auto px-4 py-16" id="servicios">
-      <h2 className="text-3xl font-extrabold text-center mb-12 text-neutral-900 relative inline-block left-1/2 -translate-x-1/2">
-        Nuestros Servicios
-        <span className="absolute -bottom-3 left-1/4 w-1/2 h-1 bg-red-500 rounded-full"></span>
-      </h2>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {servicios.map((servicio) => (
-          <div 
-            key={servicio.id} 
-            className="group bg-white rounded-2xl shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 p-6 border border-gray-100 flex flex-col"
-          >
-            <div className="flex justify-between items-start mb-4">
-              <span className="bg-red-50 text-blue-700 text-xs px-3 py-1.5 rounded-full font-bold uppercase tracking-wide border border-red-100">
-                {servicio.categoria}
-              </span>
-              <span className="relative flex h-3 w-3">
-                {servicio.disponible && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>}
-                <span className={`relative inline-flex rounded-full h-3 w-3 ${servicio.disponible ? 'bg-green-500' : 'bg-red-500'}`}></span>
-              </span>
-            </div>
-            
-            <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-red-600 transition-colors">
-              {servicio.nombre}
-            </h3>
-            
-            <p className="text-gray-600 mb-6 flex-grow leading-relaxed">
-              {servicio.descripcion}
-            </p>
-            
-            <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between">
-              <span className="text-2xl font-black text-neutral-900">
-                Bs. {servicio.precio_base}
-              </span>
-              <a 
-                href="#cotizar"
-                className="bg-slate-100 hover:bg-red-600 text-slate-700 hover:text-white px-5 py-2.5 rounded-lg font-bold transition-all duration-300"
-              >
-                Elegir
-              </a>
-            </div>
+    <section className="py-16 bg-neutral-950 text-neutral-100" id="servicios">
+      <div className="container mx-auto px-4 max-w-6xl">
+        
+        {/* Encabezado */}
+        <div className="text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold uppercase tracking-wide mb-4">
+            Nuestros <span className="text-red-600">Servicios</span>
+          </h2>
+          <div className="h-1 w-24 bg-amber-500 mx-auto rounded-full mb-4"></div>
+          <p className="text-neutral-400 max-w-2xl mx-auto">
+            Soluciones técnicas integrales para que tu evento sea inolvidable.
+          </p>
+        </div>
+
+        {/* Estado de Error */}
+        {error && (
+          <div className="bg-red-900/20 border border-red-600/50 text-red-400 p-4 rounded-lg text-center max-w-2xl mx-auto">
+            {error}
           </div>
-        ))}
+        )}
+
+        {/* Estado de Carga (Skeletons) */}
+        {cargando ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[1, 2, 3].map((skeleton) => (
+              <div key={skeleton} className="bg-neutral-900 rounded-xl p-8 border border-neutral-800 animate-pulse">
+                <div className="w-16 h-16 bg-neutral-800 rounded-full mb-6"></div>
+                <div className="h-6 bg-neutral-800 rounded w-3/4 mb-4"></div>
+                <div className="h-4 bg-neutral-800 rounded w-full mb-2"></div>
+                <div className="h-4 bg-neutral-800 rounded w-5/6"></div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* Grid de Servicios Dinámicos */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {servicios.map((servicio) => (
+              <article 
+                key={servicio.id} 
+                className="group bg-neutral-900 rounded-xl p-8 border border-neutral-800 hover:border-red-600 transition-all duration-300 shadow-lg hover:shadow-red-900/20 flex flex-col h-full"
+              >
+                <div className="w-16 h-16 bg-neutral-950 rounded-full flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-transform duration-300 border border-neutral-800 group-hover:border-amber-500">
+                  {/* Si tu API no devuelve un icono, puedes poner un fallback aquí */}
+                  {servicio.icono || "🔥"} 
+                </div>
+                
+                {/* Asegúrate de que las propiedades coincidan con las de tu API (ej: servicio.nombre vs servicio.titulo) */}
+                <h3 className="text-xl font-bold text-white mb-3">
+                  {servicio.nombre || servicio.titulo}
+                </h3>
+                
+                <p className="text-neutral-400 leading-relaxed mb-6 flex-grow">
+                  {servicio.descripcion}
+                </p>
+                
+                <button className="text-amber-500 font-semibold text-sm uppercase tracking-wider hover:text-red-500 transition-colors flex items-center gap-2 mt-auto">
+                  Cotizar ahora <span aria-hidden="true">&rarr;</span>
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+    </section>
   );
 }
