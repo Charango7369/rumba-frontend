@@ -1,0 +1,9 @@
+/* Independiente de la versión de Tailwind. Añade las clases al Hero: rxs-fade-in / rxs-slide-up / rxs-delay-1 / rxs-delay-2 */
+@keyframes rxs-fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes rxs-slide-up { from { opacity: 0; transform: translateY(24px) } to { opacity: 1; transform: none } }
+.rxs-fade-in { animation: rxs-fade-in .8s ease both }
+.rxs-slide-up { animation: rxs-slide-up .7s cubic-bezier(.2, .7, .2, 1) both }
+.rxs-delay-1 { animation-delay: .15s }
+.rxs-delay-2 { animation-delay: .3s }
+.rxs-delay-3 { animation-delay: .45s }
+@media (prefers-reduced-motion: reduce) { .rxs-fade-in, .rxs-slide-up { animation: none } }

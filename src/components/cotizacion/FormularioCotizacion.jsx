@@ -1,5 +1,9 @@
 // src/components/cotizacion/FormularioCotizacion.jsx
+import { useState } from 'react';
 import { useCotizacion } from '../../hooks/useCotizacion';
+import ProgressBar from './ProgressBar';
+import { CAMPOS_REQUERIDOS, validarCampo, calcularProgreso } from '../../utils/validacionCotizacion';
+import "../../styles/rxs-animations.css";
 
 /** Fecha mínima (hoy, en hora local) para impedir fechas pasadas. */
 const hoyLocal = () => {
@@ -62,6 +66,21 @@ export default function FormularioCotizacion() {
 
   const { cargando, resultado, errorServidor } = estadoCotizacion;
 
+  // Validación en vivo: un campo muestra su error al salir de él (blur) y se actualiza mientras escribes.
+  // Los errores que ya entrega useCotizacion (p. ej. al enviar) tienen prioridad.
+  const [tocados, setTocados] = useState({});
+  const marcar = (name) => () => setTocados((t) => ({ ...t, [name]: true }));
+  const errorDe = (name) =>
+    erroresValidacion[name] || (tocados[name] ? validarCampo(name, formData[name]) : '');
+  const progreso = calcularProgreso(formData);
+  const reiniciar = () => { setTocados({}); resetFormulario(); };
+
+  // Al enviar, todos los campos pasan a validarse en vivo (así el error no desaparece al corregir otro campo).
+  const enviar = (e) => {
+    setTocados(Object.fromEntries(CAMPOS_REQUERIDOS.map((k) => [k, true])));
+    handleSubmit(e);
+  };
+
   return (
     <section
       id="cotizar"
@@ -106,7 +125,7 @@ export default function FormularioCotizacion() {
 
               <button
                 type="button"
-                onClick={resetFormulario}
+                onClick={reiniciar}
                 className="mt-6 rounded font-medium text-neutral-600 underline motion-safe:transition-colors
                            hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
               >
@@ -114,30 +133,32 @@ export default function FormularioCotizacion() {
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-8" noValidate>
+            <form onSubmit={enviar} className="space-y-8" noValidate>
+              <ProgressBar value={progreso} />
+
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <Campo label="Nombre Completo" name="nombre" value={formData.nombre}
-                  onChange={handleChange} error={erroresValidacion.nombre}
+                  onChange={handleChange} error={errorDe('nombre')} onBlur={marcar('nombre')}
                   placeholder="Ej. Juan Pérez" autoComplete="name" />
 
                 <Campo label="Teléfono" name="telefono" type="tel" value={formData.telefono}
-                  onChange={handleChange} error={erroresValidacion.telefono}
+                  onChange={handleChange} error={errorDe('telefono')} onBlur={marcar('telefono')}
                   placeholder="Ej. 71234567" autoComplete="tel" inputMode="tel" />
 
                 <Campo label="Ciudad" name="ciudad" value={formData.ciudad}
-                  onChange={handleChange} error={erroresValidacion.ciudad}
+                  onChange={handleChange} error={errorDe('ciudad')} onBlur={marcar('ciudad')}
                   placeholder="Ej. Apolo" autoComplete="address-level2" />
 
                 <Campo label="Fecha del Evento" name="fecha" type="date" value={formData.fecha}
-                  onChange={handleChange} error={erroresValidacion.fecha} min={hoyLocal()} />
+                  onChange={handleChange} error={errorDe('fecha')} onBlur={marcar('fecha')} min={hoyLocal()} />
 
                 <Campo label="Tipo de Evento" name="tipo_evento" value={formData.tipo_evento}
-                  onChange={handleChange} error={erroresValidacion.tipo_evento}
+                  onChange={handleChange} error={errorDe('tipo_evento')} onBlur={marcar('tipo_evento')}
                   placeholder="Ej. Matrimonio, 15 años" />
 
                 <Campo label="Cant. Invitados Aprox." name="invitados" type="number"
                   value={formData.invitados} onChange={handleChange}
-                  error={erroresValidacion.invitados} min={1} inputMode="numeric" />
+                  error={errorDe('invitados')} onBlur={marcar('invitados')} min={20} max={5000} inputMode="numeric" />
               </div>
 
               {/* fieldset + legend: el grupo se anuncia con su nombre */}
@@ -209,9 +230,9 @@ export default function FormularioCotizacion() {
                   type="submit"
                   disabled={cargando}
                   aria-busy={cargando}
-                  className="flex w-full items-center justify-center gap-3 rounded-xl bg-neutral-950 py-5 text-xl
+                  className="flex w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-neutral-950 via-neutral-950 to-red-700 bg-[length:200%_100%] py-5 text-xl
                              font-bold uppercase tracking-wide text-white shadow-xl motion-safe:transition-all
-                             hover:bg-red-700 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70
+                             hover:bg-right hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70
                              focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
                 >
                   {cargando && (

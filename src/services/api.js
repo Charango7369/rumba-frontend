@@ -36,7 +36,12 @@ export class ApiError extends Error {
 function mensajeDeError(status, body) {
   // HTTPException(detail="texto"): mensaje controlado por tu backend, se muestra tal cual.
   if (typeof body?.detail === 'string') return body.detail;
-  if (status === 422) return MSG.validacion; // detail es un array técnico de Pydantic
+  // Mensajes por campo, ya en español (los entrega el manejador de 422 del backend).
+  if (status === 422 && body?.errores) {
+    const textos = Object.values(body.errores);
+    if (textos.length) return textos.join('. ');
+  }
+  if (status === 422) return MSG.validacion; // respaldo: detail es un array técnico de Pydantic
   if (status === 429) return MSG.limite;
   return MSG.servidor;
 }
