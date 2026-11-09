@@ -1,96 +1,195 @@
 // src/services/api.js
-
-// Se quita la barra final para evitar rutas con "//".
-// Vite inyecta esta variable en build time: si la cambias en Cloudflare, redeploya.
 const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
 
-// Margen para cold starts de Railway.
-const TIMEOUT_MS = 15000;
-
-if (!API_URL) {
-  console.error('Falta VITE_API_URL. Revisa .env.local o las variables de Cloudflare Pages.');
-}
-
-/** Mensajes pensados para el usuario final (los detalles técnicos van a console.error). */
-const MSG = {
-  config: 'El servicio no está disponible por el momento. Inténtalo más tarde.',
-  red: 'No pudimos conectarnos. Revisa tu conexión e inténtalo de nuevo.',
-  timeout: 'El servidor está tardando más de lo normal. Inténtalo de nuevo en unos segundos.',
-  invalida: 'Recibimos una respuesta inesperada del servidor. Inténtalo de nuevo.',
-  validacion: 'Revisa los datos del formulario e inténtalo de nuevo.',
-  limite: 'Demasiados intentos. Espera un momento e inténtalo otra vez.',
-  servidor: 'No pudimos procesar tu solicitud. Inténtalo de nuevo o escríbenos por WhatsApp.',
+export const resolveMediaUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+  return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
-/** Error tipado: conserva status y detalles por si luego quieres mapear errores a campos. */
-export class ApiError extends Error {
-  constructor(message, { status, detalles } = {}) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-    this.detalles = detalles;
+class ApiService {
+  constructor() {
+    this.accessToken = localStorage.getItem('rxs_access_token') || null;
+    this.refreshToken = localStorage.getItem('rxs_refresh_token') || null;
+    this.isRefreshing = false;
+    this.refreshSubscribers = [];
   }
+
+  setTokens(access, refresh) {
+    this.accessToken = access;
+    this.refreshToken = refresh;
+    if (access) localStorage.setItem('rxs_access_token', access);
+    else localStorage.removeItem('rxs_access_token');
+
+    if (refresh) localStorage.setItem('rxs_refresh_token', refresh);
+    else localStorage.removeItem('rxs_refresh_token');
+  }
+
+  getStoredUser() {
+    try {
+      const u = localStorage.getItem('rxs_user');
+      return u ? JSON.parse(u) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  setStoredUser(user) {
+    if (user) localStorage.setItem('rxs_user', JSON.stringify(user));
+    else localStorage.removeItem('rxs_user');
+  }
+
+  onRefreshed(token) {
+    this.refreshSubscribers.forEach((cb) => cb(token));
+    this.refreshSubscribers = [];
+  }
+
+  async request(path, options = {}) {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    if (this.accessToken) {
+      headers['Authorization'] = `Bearer ${this.accessToken}`;
+    }
+
+    let response;
+    try {
+      response = await fetch(`${API_URL}${path}`, { ...options, headers });
+    } catch (err) {
+      throw new Error('No se pudo establecer conexión con el servidor.');
+    }
+
+    // Interceptor: si responde 401 y hay refresh_token disponible, renovar silenciosamente
+    if (response.status === 401 && this.refreshToken && !options._retry) {
+      if (this.isRefreshing) {
+        return new Promise((resolve) => {
+          this.refreshSubscribers.push((newToken) => {
+            options.headers = { ...options.headers, Authorization: `Bearer ${newToken}` };
+            resolve(this.request(path, options));
+          });
+        });
+      }
+
+      options._retry = true;
+      this.isRefreshing = true;
+
+      try {
+        const refreshRes = await fetch(`${API_URL}/api/v1/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: this.refreshToken }),
+        });
+
+        if (refreshRes.ok) {
+          const data = await refreshRes.json();
+          this.setTokens(data.access_token, data.refresh_token);
+          this.isRefreshing = false;
+          this.onRefreshed(data.access_token);
+          headers['Authorization'] = `Bearer ${data.access_token}`;
+          return fetch(`${API_URL}${path}`, { ...options, headers }).then((r) => r.json());
+        } else {
+          this.setTokens(null, null);
+          this.setStoredUser(null);
+          window.location.href = '/admin/login';
+        }
+      } catch (e) {
+        this.setTokens(null, null);
+        this.setStoredUser(null);
+        window.location.href = '/admin/login';
+      } finally {
+        this.isRefreshing = false;
+      }
+    }
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      const mensaje = data?.detail || 'Ocurrió un error en la solicitud.';
+      throw new Error(typeof mensaje === 'string' ? mensaje : JSON.stringify(mensaje));
+    }
+
+    return data;
+  }
+
+  // --- Catálogo Público ---
+  obtenerServicios = () => this.request('/api/v1/services');
+  obtenerServiciosDestacados = () => this.request('/api/v1/services/featured');
+  obtenerOpcionesCotizacion = () => this.request('/api/v1/services/catalog/quote-options');
+  generarCotizacion = (formData) => this.request('/api/v1/quotes', { method: 'POST', body: JSON.stringify(formData) });
+
+  // --- Subida de Imágenes Multipart ---
+  subirImagen = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const headers = {};
+    if (this.accessToken) {
+      headers['Authorization'] = `Bearer ${this.accessToken}`;
+    }
+
+    let response;
+    try {
+      response = await fetch(`${API_URL}/api/v1/admin/services/upload-image`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+    } catch (err) {
+      throw new Error('Fallo de red al subir la imagen al servidor.');
+    }
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(data?.detail || 'Error al subir la imagen.');
+    }
+
+    return data;
+  };
+
+  // --- Autenticación ---
+  login = (credentials) => this.request('/api/v1/auth/login', { method: 'POST', body: JSON.stringify(credentials) });
+  getPerfil = () => this.request('/api/v1/auth/me');
+  logout = async () => {
+    try {
+      if (this.refreshToken) {
+        await this.request('/api/v1/auth/logout', { method: 'POST', body: JSON.stringify({ refresh_token: this.refreshToken }) });
+      }
+    } finally {
+      this.setTokens(null, null);
+      this.setStoredUser(null);
+    }
+  };
+
+  // --- Admin: Métricas Dashboard ---
+  getDashboardMetrics = () => this.request('/api/v1/admin/metrics/dashboard');
+
+  // --- Admin: Catálogo de Servicios ---
+  getAdminServicios = () => this.request('/api/v1/admin/services');
+  crearServicio = (servicio) => this.request('/api/v1/admin/services', { method: 'POST', body: JSON.stringify(servicio) });
+  actualizarServicio = (id, servicio) => this.request(`/api/v1/admin/services/${id}`, { method: 'PUT', body: JSON.stringify(servicio) });
+  actualizarPrecio = (id, precios) => this.request(`/api/v1/admin/services/${id}/price`, { method: 'PATCH', body: JSON.stringify(precios) });
+  toggleEstadoServicio = (id, activo) => this.request(`/api/v1/admin/services/${id}/status`, { method: 'PATCH', body: JSON.stringify({ activo }) });
+  eliminarServicio = (id) => this.request(`/api/v1/admin/services/${id}`, { method: 'DELETE' });
+
+  // --- Admin: Cotizaciones y Solicitudes ---
+  getAdminCotizaciones = (params = '') => this.request(`/api/v1/admin/quotes?${params}`);
+  actualizarEstadoCotizacion = (id, estado, observaciones) =>
+    this.request(`/api/v1/admin/quotes/${id}`, { method: 'PATCH', body: JSON.stringify({ estado, observaciones }) });
+  eliminarCotizacion = (id) => this.request(`/api/v1/admin/quotes/${id}`, { method: 'DELETE' });
+
+  // --- Admin: Usuarios y Roles (SuperAdmin) ---
+  getAdminUsuarios = () => this.request('/api/v1/admin/users');
+  crearUsuario = (usuario) => this.request('/api/v1/admin/users', { method: 'POST', body: JSON.stringify(usuario) });
+  actualizarUsuario = (id, datos) => this.request(`/api/v1/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(datos) });
+  eliminarUsuario = (id) => this.request(`/api/v1/admin/users/${id}`, { method: 'DELETE' });
+
+  // --- Admin: Auditoría (SuperAdmin) ---
+  getAdminAuditoria = (params = '') => this.request(`/api/v1/admin/audit?${params}`);
 }
 
-/** Traduce la respuesta de error de FastAPI a un mensaje amigable. */
-function mensajeDeError(status, body) {
-  // HTTPException(detail="texto"): mensaje controlado por tu backend, se muestra tal cual.
-  if (typeof body?.detail === 'string') return body.detail;
-  // Mensajes por campo, ya en español (los entrega el manejador de 422 del backend).
-  if (status === 422 && body?.errores) {
-    const textos = Object.values(body.errores);
-    if (textos.length) return textos.join('. ');
-  }
-  if (status === 422) return MSG.validacion; // respaldo: detail es un array técnico de Pydantic
-  if (status === 429) return MSG.limite;
-  return MSG.servidor;
-}
-
-/**
- * Capa HTTP única: URL base, timeout, errores y validación del JSON.
- * Acepta un `signal` opcional para cancelar desde el componente.
- */
-async function request(path, { timeoutMs = TIMEOUT_MS, signal, ...options } = {}) {
-  if (!API_URL) throw new ApiError(MSG.config);
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  signal?.addEventListener('abort', () => controller.abort(), { once: true });
-
-  let response;
-  try {
-    response = await fetch(`${API_URL}${path}`, { ...options, signal: controller.signal });
-  } catch (err) {
-    if (signal?.aborted) throw err; // cancelado a propósito por el componente
-    console.error('Fallo de red:', err);
-    throw new ApiError(err.name === 'AbortError' ? MSG.timeout : MSG.red);
-  } finally {
-    clearTimeout(timer);
-  }
-
-  // Solo se parsea si de verdad es JSON (un 502 de proxy suele ser HTML)
-  const esJson = response.headers.get('content-type')?.includes('application/json');
-  const body = esJson ? await response.json().catch(() => null) : null;
-
-  if (!response.ok) {
-    console.error(`API ${response.status} en ${path}:`, body);
-    throw new ApiError(mensajeDeError(response.status, body), {
-      status: response.status,
-      detalles: body?.detail,
-    });
-  }
-
-  // 200 sin JSON = probablemente VITE_API_URL mal configurada (devolvió index.html)
-  if (body === null) throw new ApiError(MSG.invalida, { status: response.status });
-  return body;
-}
-
-export const obtenerServicios = (opts) => request('/api/servicios', opts);
-
-export const generarCotizacion = (formData, opts) =>
-  request('/api/cotizacion', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(formData),
-    ...opts,
-  });
+export const api = new ApiService();
+export const obtenerServicios = api.obtenerServicios;
+export const generarCotizacion = api.generarCotizacion;
+export default api;
