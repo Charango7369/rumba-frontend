@@ -14,7 +14,7 @@ const MONTAJES = [
     titulo: "Festival Masivo en Vivo",
     categoria: "conciertos",
     tipo: "video",
-    mediaUrl: "https://assets.mixkit.co/videos/48624/48624-720.mp4",
+    mediaUrl: "https://assets.mixkit.co/videos/14088/14088-720.mp4",
     posterUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80",
     descripcion: "Sonorización con torres Nexo STM para más de 5,000 personas e iluminación sincronizada con código de tiempo.",
     equipos: "Nexo STM M46/B112, 24x Beam 7R, Pantalla LED P3.9",
