@@ -55,6 +55,26 @@ export default function CatalogoAdminPage() {
     cargarServicios();
   }, [cargarServicios]);
 
+  // Bloqueo de scroll en body y soporte para tecla Escape
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setModalAbierto(false);
+        setModalPrecioAbierto(false);
+      }
+    };
+    if (modalAbierto || modalPrecioAbierto) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [modalAbierto, modalPrecioAbierto]);
+
   const handleToggleEstado = async (id, estadoActual) => {
     try {
       await api.toggleEstadoServicio(id, !estadoActual);
@@ -335,78 +355,105 @@ export default function CatalogoAdminPage() {
 
       {/* Modal Rápido de Precios */}
       {modalPrecioAbierto && servicioSeleccionado && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-2xl">
-            <h3 className="text-lg font-black uppercase text-white mb-1">
-              Ajustar Tarifas: {servicioSeleccionado.nombre}
-            </h3>
-            <p className="text-xs text-neutral-400 mb-6">
-              El cambio impactará inmediatamente en el cotizador y la landing page.
-            </p>
-
-            <form onSubmit={handleGuardarPrecio} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase text-neutral-300 mb-1">
-                  Precio Base (Bs.)
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  step="0.01"
-                  value={precioBase}
-                  onChange={(e) => setPrecioBase(e.target.value)}
-                  className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-2.5 text-white font-mono text-base outline-none focus:border-red-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase text-neutral-300 mb-1">
-                  Precio Promocional (Opcional - Bs.)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={precioPromo}
-                  onChange={(e) => setPrecioPromo(e.target.value)}
-                  placeholder="Dejar vacío si no aplica oferta"
-                  className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-2.5 text-white font-mono text-base outline-none focus:border-red-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-neutral-800">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-4 sm:p-6">
+          <div className="flex min-h-full items-start justify-center py-6 sm:py-10">
+            <div className="w-full max-w-md rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-2xl relative my-auto">
+              <div className="flex items-start justify-between gap-4 pb-3 border-b border-neutral-800 mb-5">
+                <div>
+                  <h3 className="text-lg font-black uppercase text-white">
+                    Ajustar Tarifas: {servicioSeleccionado.nombre}
+                  </h3>
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    El cambio impactará inmediatamente en el cotizador y la landing page.
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() => setModalPrecioAbierto(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase text-neutral-400 hover:text-white"
+                  className="p-1.5 -mr-1 -mt-1 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors shrink-0"
+                  title="Cerrar ventana"
                 >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-amber-500 text-xs font-bold uppercase text-white shadow-lg hover:brightness-110"
-                >
-                  Guardar Precios
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-            </form>
+
+              <form onSubmit={handleGuardarPrecio} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-neutral-300 mb-1">
+                    Precio Base (Bs.)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    step="0.01"
+                    value={precioBase}
+                    onChange={(e) => setPrecioBase(e.target.value)}
+                    className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-2.5 text-white font-mono text-base outline-none focus:border-red-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-neutral-300 mb-1">
+                    Precio Promocional (Opcional - Bs.)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={precioPromo}
+                    onChange={(e) => setPrecioPromo(e.target.value)}
+                    placeholder="Dejar vacío si no aplica oferta"
+                    className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-2.5 text-white font-mono text-base outline-none focus:border-red-500"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => setModalPrecioAbierto(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold uppercase text-neutral-400 hover:text-white"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-amber-500 text-xs font-bold uppercase text-white shadow-lg hover:brightness-110"
+                  >
+                    Guardar Precios
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* Modal Completo de Servicio (Crear / Editar) con ImageUploader */}
       {modalAbierto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-2xl rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-2xl my-8">
-            <h3 className="text-xl font-black uppercase text-white mb-2">
-              {servicioSeleccionado ? `Editar Servicio: ${servicioSeleccionado.nombre}` : 'Nuevo Servicio / Extra'}
-            </h3>
-            <p className="text-xs text-neutral-400 mb-6">
-              Completa los datos técnicos y comerciales que se presentarán a los clientes.
-            </p>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-4 sm:p-6">
+          <div className="flex min-h-full items-start justify-center py-6 sm:py-10">
+            <div className="w-full max-w-2xl rounded-2xl border border-neutral-700 bg-neutral-900 p-6 sm:p-8 shadow-2xl relative my-auto">
+              <div className="flex items-start justify-between gap-4 pb-4 border-b border-neutral-800 mb-6">
+                <div>
+                  <h3 className="text-xl font-black uppercase text-white leading-tight">
+                    {servicioSeleccionado ? `Editar Servicio: ${servicioSeleccionado.nombre}` : 'Nuevo Servicio / Extra'}
+                  </h3>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    Completa los datos técnicos y comerciales que se presentarán a los clientes.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setModalAbierto(false)}
+                  className="p-2 -mr-2 -mt-2 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors shrink-0"
+                  title="Cerrar ventana"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-            <form onSubmit={handleGuardarServicio} className="space-y-5">
+              <form onSubmit={handleGuardarServicio} className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase text-neutral-300 mb-1">Nombre</label>
@@ -566,6 +613,7 @@ export default function CatalogoAdminPage() {
             </form>
           </div>
         </div>
+      </div>
       )}
     </div>
   );

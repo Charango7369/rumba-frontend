@@ -47,6 +47,23 @@ export default function CotizacionesAdminPage() {
     return () => clearTimeout(timer);
   }, [cargarCotizaciones]);
 
+  // Bloqueo de scroll de fondo y tecla Escape
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setModalAbierto(false);
+    };
+    if (modalAbierto) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [modalAbierto]);
+
   const abrirGestion = (cotiz) => {
     setCotizacionActual(cotiz);
     setNuevoEstado(cotiz.estado);
@@ -214,70 +231,84 @@ export default function CotizacionesAdminPage() {
 
       {/* Modal de Detalle y Seguimiento */}
       {modalAbierto && cotizacionActual && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-xl rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-2xl">
-            <h3 className="text-lg font-black uppercase text-white mb-1">
-              Gestionar Solicitud: {cotizacionActual.codigo_seguimiento || `RXS-${cotizacionActual.id}`}
-            </h3>
-            <p className="text-xs text-neutral-400 mb-6">
-              Cliente: {cotizacionActual.nombre} • Tel: {cotizacionActual.telefono}
-            </p>
-
-            <form onSubmit={handleGuardarGestion} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase text-neutral-300 mb-1">
-                  Estado Comercial de la Solicitud
-                </label>
-                <select
-                  value={nuevoEstado}
-                  onChange={(e) => setNuevoEstado(e.target.value)}
-                  className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-2.5 text-sm text-white outline-none focus:border-red-500"
-                >
-                  {ESTADOS.map((e) => (
-                    <option key={e} value={e}>{e}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase text-neutral-300 mb-1">
-                  Observaciones Internas / Notas del Operador
-                </label>
-                <textarea
-                  rows={4}
-                  value={observaciones}
-                  onChange={(e) => setObservaciones(e.target.value)}
-                  placeholder="Ej. Cliente prefiere pagar 50% de anticipo. Requiere visita técnica previa a la locación en Apolo."
-                  className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-2.5 text-sm text-white outline-none focus:border-red-500"
-                />
-              </div>
-
-              {cotizacionActual.desglose_calculo && (
-                <div className="p-4 rounded-xl border border-neutral-800 bg-neutral-950 text-xs font-mono space-y-1 text-neutral-300">
-                  <p className="font-bold text-amber-400 uppercase font-sans">Desglose de Cotización Automática:</p>
-                  <p>Paquete: {cotizacionActual.desglose_calculo.paquete?.nombre} (Bs. {cotizacionActual.desglose_calculo.paquete?.precio_unitario})</p>
-                  <p>Excedente Capacidad: Bs. {cotizacionActual.desglose_calculo.capacidad?.costo_adicional}</p>
-                  <p>Extras: Bs. {cotizacionActual.desglose_calculo.costo_extras_total}</p>
-                  <p className="font-bold text-white pt-1">Total Estimado: Bs. {cotizacionActual.desglose_calculo.total_estimado}</p>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-4 sm:p-6">
+          <div className="flex min-h-full items-start justify-center py-6 sm:py-10">
+            <div className="w-full max-w-xl rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-2xl relative my-auto">
+              <div className="flex items-start justify-between gap-4 pb-3 border-b border-neutral-800 mb-5">
+                <div>
+                  <h3 className="text-lg font-black uppercase text-white">
+                    Gestionar Solicitud: {cotizacionActual.codigo_seguimiento || `RXS-${cotizacionActual.id}`}
+                  </h3>
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    Cliente: {cotizacionActual.nombre} • Tel: {cotizacionActual.telefono}
+                  </p>
                 </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-neutral-800">
                 <button
                   type="button"
                   onClick={() => setModalAbierto(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase text-neutral-400 hover:text-white"
+                  className="p-1.5 -mr-1 -mt-1 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors shrink-0"
+                  title="Cerrar ventana"
                 >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-amber-500 text-xs font-bold uppercase text-white shadow-lg hover:brightness-110"
-                >
-                  Actualizar Seguimiento
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-            </form>
+
+              <form onSubmit={handleGuardarGestion} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-neutral-300 mb-1">
+                    Estado Comercial de la Solicitud
+                  </label>
+                  <select
+                    value={nuevoEstado}
+                    onChange={(e) => setNuevoEstado(e.target.value)}
+                    className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-2.5 text-sm text-white outline-none focus:border-red-500"
+                  >
+                    {ESTADOS.map((e) => (
+                      <option key={e} value={e}>{e}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-neutral-300 mb-1">
+                    Observaciones Internas / Notas del Operador
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={observaciones}
+                    onChange={(e) => setObservaciones(e.target.value)}
+                    placeholder="Ej. Cliente prefiere pagar 50% de anticipo. Requiere visita técnica previa a la locación en Apolo."
+                    className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-2.5 text-sm text-white outline-none focus:border-red-500"
+                  />
+                </div>
+
+                {cotizacionActual.desglose_calculo && (
+                  <div className="p-4 rounded-xl border border-neutral-800 bg-neutral-950 text-xs font-mono space-y-1 text-neutral-300">
+                    <p className="font-bold text-amber-400 uppercase font-sans">Desglose de Cotización Automática:</p>
+                    <p>Paquete: {cotizacionActual.desglose_calculo.paquete?.nombre} (Bs. {cotizacionActual.desglose_calculo.paquete?.precio_unitario})</p>
+                    <p>Excedente Capacidad: Bs. {cotizacionActual.desglose_calculo.capacidad?.costo_adicional}</p>
+                    <p>Extras: Bs. {cotizacionActual.desglose_calculo.costo_extras_total}</p>
+                    <p className="font-bold text-white pt-1">Total Estimado: Bs. {cotizacionActual.desglose_calculo.total_estimado}</p>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => setModalAbierto(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold uppercase text-neutral-400 hover:text-white"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-amber-500 text-xs font-bold uppercase text-white shadow-lg hover:brightness-110"
+                  >
+                    Actualizar Seguimiento
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

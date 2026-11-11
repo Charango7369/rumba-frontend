@@ -1,7 +1,7 @@
 // src/pages/admin/AuditoriaAdminPage.jsx
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
-import { ShieldCheck, Search, Eye, Filter } from 'lucide-react';
+import { ShieldCheck, Search, Eye, Filter, X } from 'lucide-react';
 
 export default function AuditoriaAdminPage() {
   const [logs, setLogs] = useState([]);
@@ -31,6 +31,23 @@ export default function AuditoriaAdminPage() {
   useEffect(() => {
     cargarLogs();
   }, [cargarLogs]);
+
+  // Bloqueo de scroll de fondo y tecla Escape
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setDetalleLog(null);
+    };
+    if (detalleLog) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [detalleLog]);
 
   return (
     <div className="space-y-6">
@@ -133,39 +150,53 @@ export default function AuditoriaAdminPage() {
       </div>
 
       {detalleLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-xl rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-2xl">
-            <h3 className="text-lg font-black uppercase text-white mb-2">
-              Detalle de Mutación #{detalleLog.id}
-            </h3>
-            <p className="text-xs text-neutral-400 mb-4">
-              {detalleLog.accion} sobre {detalleLog.recurso_afectado} por {detalleLog.usuario_email}
-            </p>
-
-            <div className="space-y-4 font-mono text-xs">
-              <div>
-                <p className="font-bold text-neutral-400 font-sans uppercase mb-1">Valores Previos:</p>
-                <pre className="p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-red-300 overflow-x-auto">
-                  {detalleLog.valores_previos ? JSON.stringify(detalleLog.valores_previos, null, 2) : 'Ninguno / Creación'}
-                </pre>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-4 sm:p-6">
+          <div className="flex min-h-full items-start justify-center py-6 sm:py-10">
+            <div className="w-full max-w-xl rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-2xl relative my-auto">
+              <div className="flex items-start justify-between gap-4 pb-3 border-b border-neutral-800 mb-4">
+                <div>
+                  <h3 className="text-lg font-black uppercase text-white">
+                    Detalle de Mutación #{detalleLog.id}
+                  </h3>
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    {detalleLog.accion} sobre {detalleLog.recurso_afectado} por {detalleLog.usuario_email}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDetalleLog(null)}
+                  className="p-1.5 -mr-1 -mt-1 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors shrink-0"
+                  title="Cerrar"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              <div>
-                <p className="font-bold text-neutral-400 font-sans uppercase mb-1">Valores Nuevos:</p>
-                <pre className="p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-emerald-300 overflow-x-auto">
-                  {detalleLog.valores_nuevos ? JSON.stringify(detalleLog.valores_nuevos, null, 2) : 'Ninguno / Eliminación'}
-                </pre>
-              </div>
-            </div>
+              <div className="space-y-4 font-mono text-xs">
+                <div>
+                  <p className="font-bold text-neutral-400 font-sans uppercase mb-1">Valores Previos:</p>
+                  <pre className="p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-red-300 overflow-x-auto max-h-60">
+                    {detalleLog.valores_previos ? JSON.stringify(detalleLog.valores_previos, null, 2) : 'Ninguno / Creación'}
+                  </pre>
+                </div>
 
-            <div className="flex justify-end pt-4 mt-4 border-t border-neutral-800">
-              <button
-                type="button"
-                onClick={() => setDetalleLog(null)}
-                className="px-5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-xs font-bold uppercase text-white"
-              >
-                Cerrar
-              </button>
+                <div>
+                  <p className="font-bold text-neutral-400 font-sans uppercase mb-1">Valores Nuevos:</p>
+                  <pre className="p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-emerald-300 overflow-x-auto max-h-60">
+                    {detalleLog.valores_nuevos ? JSON.stringify(detalleLog.valores_nuevos, null, 2) : 'Ninguno / Eliminación'}
+                  </pre>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 mt-4 border-t border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setDetalleLog(null)}
+                  className="px-5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-xs font-bold uppercase text-white"
+                >
+                  Cerrar
+                </button>
+              </div>
             </div>
           </div>
         </div>
